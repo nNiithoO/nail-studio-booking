@@ -1,0 +1,9 @@
+{
+  "name": "nail-studio-booking",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "googleapis": "^140.0.0",
+    "mercadopago": "^2.0.15"
+  }
+}

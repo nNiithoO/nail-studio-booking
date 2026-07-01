@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reagendar cita · ODIOSA Studio</title>
+<style>
+  :root{
+    --rosa-fuerte:#e8a0b4;
+    --rosa-suave:#fbe9ee;
+    --rosa-medio:#f3cdda;
+    --blanco:#ffffff;
+    --texto:#4a3640;
+    --texto-suave:#9c7c89;
+    --dorado:#d9b48f;
+    --radius:18px;
+    --sombra:0 10px 30px rgba(232,160,180,0.18);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    background:linear-gradient(180deg,var(--rosa-suave) 0%,var(--blanco) 60%);
+    color:var(--texto);
+    min-height:100vh;
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:28px 20px 80px;}
+  header{text-align:center;margin-bottom:22px;}
+  .logo{font-family:Georgia,'Times New Roman',serif;font-size:28px;letter-spacing:1px;color:var(--rosa-fuerte);margin:0;}
+  .logo span{color:var(--dorado);font-style:italic;}
+  .sub{color:var(--texto-suave);font-size:13px;margin-top:4px;letter-spacing:.5px;text-transform:uppercase;}
+  .card{background:var(--blanco);border-radius:var(--radius);box-shadow:var(--sombra);padding:24px;animation:fade .35s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  h2{font-family:Georgia,serif;font-size:21px;margin:0 0 4px;}
+  .hint{color:var(--texto-suave);font-size:13.5px;margin:0 0 18px;}
+  .current-box{
+    background:var(--rosa-suave);border-radius:14px;padding:16px 18px;margin-bottom:18px;
+    border-left:3px solid var(--rosa-fuerte);
+  }
+  .current-box .label{font-size:12px;color:var(--texto-suave);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+  .current-box .val{font-size:15px;font-weight:600;color:var(--texto);}
+  .cal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px;}
+  .cal-day{
+    border:1.5px solid var(--rosa-medio);border-radius:10px;
+    padding:8px 4px;text-align:center;font-size:12.5px;cursor:pointer;
+  }
+  .cal-day.disabled{opacity:.35;cursor:not-allowed;}
+  .cal-day.same{opacity:.45;cursor:not-allowed;background:var(--rosa-suave);}
+  .cal-day.selected{background:var(--rosa-fuerte);color:#fff;border-color:var(--rosa-fuerte);}
+  .times{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px;}
+  .time-slot{
+    border:1.5px solid var(--rosa-medio);border-radius:10px;
+    padding:9px 4px;text-align:center;font-size:13px;cursor:pointer;
+  }
+  .time-slot.selected{background:var(--rosa-fuerte);color:#fff;border-color:var(--rosa-fuerte);}
+  .time-slot.taken{opacity:.3;cursor:not-allowed;text-decoration:line-through;}
+  .time-slot.same{opacity:.4;cursor:not-allowed;background:var(--rosa-suave);}
+  label.field{display:block;font-size:13px;color:var(--texto-suave);margin:14px 0 5px;}
+  .btn-primary{
+    width:100%;border:none;border-radius:30px;padding:14px;
+    font-size:15px;font-weight:600;cursor:pointer;
+    background:var(--rosa-fuerte);color:#fff;margin-top:6px;
+  }
+  .btn-primary:disabled{background:#f1d4dc;color:#fff;cursor:not-allowed;}
+  .btn-cancel{
+    width:100%;border:1.5px solid #e07070;border-radius:30px;padding:12px;
+    font-size:14px;font-weight:600;cursor:pointer;
+    background:#fff;color:#c0577a;margin-top:10px;
+  }
+  .btn-cancel:hover{background:#fdecea;}
+  .notice{
+    background:#fff8e1;border-radius:12px;padding:12px 14px;
+    font-size:13px;color:#7a6020;margin-bottom:16px;border-left:3px solid #f5c842;
+  }
+  .success-icon{text-align:center;font-size:46px;margin-bottom:6px;}
+  .summary-line{
+    display:flex;justify-content:space-between;
+    padding:9px 0;border-bottom:1px solid var(--rosa-suave);font-size:14px;
+  }
+  .error-box{
+    background:#fdecea;border-radius:12px;padding:14px;
+    font-size:13.5px;color:#b03030;text-align:center;margin-bottom:14px;
+  }
+  .wa-btn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    background:#3fb24a;color:#fff;border-radius:30px;padding:13px;
+    text-decoration:none;font-weight:600;font-size:15px;margin-top:16px;
+  }
+  footer{text-align:center;color:var(--texto-suave);font-size:11.5px;margin-top:24px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="logo">ODIOSA <span>Studio</span></p>
+    <p class="sub">Reagendar cita</p>
+  </header>
+  <div class="card" id="card">
+    <p style="text-align:center;color:var(--texto-suave)">Cargando tu cita…</p>
+  </div>
+  <footer>Solo puedes reagendar con mínimo 24 horas de anticipación · El anticipo se transfiere automáticamente</footer>
+</div>
+
+<script>
+// ---- CONFIG ----
+const WHATSAPP_NUMBER = "5215549182540"; // número de WhatsApp del negocio
+const TIME_SLOTS = ["10:00 am","11:30 am","1:00 pm","2:30 pm","4:00 pm","5:30 pm"];
+
+// Generate next 8 available days (skip Sundays)
+function generateDays(){
+  const days = [];
+  const today = new Date();
+  let i = 1;
+  while(days.length < 8){
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    days.push({
+      date: d,
+      label: d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric'}),
+      disabled: d.getDay() === 0,
+    });
+    i++;
+  }
+  return days;
+}
+
+function dateKey(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+const state = {
+  booking: null,       // datos actuales de la cita
+  days: generateDays(),
+  takenMap: {},
+  selectedDay: null,
+  selectedTime: null,
+  phase: 'loading',    // 'loading'|'pick'|'confirm'|'done'|'error'|'too-late'|'cancel-confirm'|'cancelled'
+  errorMsg: '',
+};
+
+const params = new URLSearchParams(window.location.search);
+const paymentId = params.get('id');
+
+async function init(){
+  if(!paymentId){
+    state.phase = 'error';
+    state.errorMsg = 'No encontramos tu cita. Verifica el enlace que recibiste.';
+    render(); return;
+  }
+
+  try{
+    const [bookingRes, availRes] = await Promise.all([
+      fetch(`/api/get-booking?id=${paymentId}`),
+      fetch('/api/get-availability'),
+    ]);
+
+    const booking = await bookingRes.json();
+    const avail   = await availRes.json();
+
+    if(!bookingRes.ok || booking.error){
+      state.phase = 'error';
+      state.errorMsg = booking.error || 'No encontramos tu cita.';
+      render(); return;
+    }
+
+    if(booking.estado === 'cancelada'){
+      state.phase = 'error';
+      state.errorMsg = 'Esta cita ya fue cancelada y no puede reagendarse.';
+      render(); return;
+    }
+
+    // Check 24h rule
+    const [yr,mo,dy] = booking.fecha.split('-').map(Number);
+    const [tp, mer] = booking.hora.split(' ');
+    let [hh,mm] = tp.split(':').map(Number);
+    if(mer==='pm'&&hh!==12) hh+=12;
+    if(mer==='am'&&hh===12) hh=0;
+    const apptDate = new Date(yr, mo-1, dy, hh, mm);
+    const hoursLeft = (apptDate - new Date()) / 3600000;
+
+    if(hoursLeft < 24){
+      state.phase = 'too-late';
+      state.booking = booking;
+      render(); return;
+    }
+
+    state.booking = booking;
+    state.takenMap = avail.taken || {};
+    state.phase = 'pick';
+    render();
+  } catch(err){
+    state.phase = 'error';
+    state.errorMsg = 'Error de conexión. Intenta de nuevo.';
+    render();
+  }
+}
+
+function render(){
+  const card = document.getElementById('card');
+  const b = state.booking;
+
+  if(state.phase === 'loading'){
+    card.innerHTML = `<p style="text-align:center;color:var(--texto-suave)">Cargando tu cita…</p>`;
+  }
+
+  else if(state.phase === 'error'){
+    card.innerHTML = `
+      <div class="error-box">❌ ${state.errorMsg}</div>
+      <p style="text-align:center;font-size:13.5px;color:var(--texto-suave)">
+        Si crees que hay un error, contáctanos por WhatsApp.
+      </p>
+      <a class="wa-btn" href="https://wa.me/${WHATSAPP_NUMBER}" target="_blank">Contactar por WhatsApp</a>
+    `;
+  }
+
+  else if(state.phase === 'too-late'){
+    card.innerHTML = `
+      <h2>No es posible reagendar</h2>
+      <p class="hint">Tu cita es en menos de 24 horas y ya no puede modificarse.</p>
+      <div class="current-box">
+        <div class="label">Tu cita actual</div>
+        <div class="val">${b.servicio}</div>
+        <div class="val" style="font-size:13px;font-weight:400;margin-top:4px">${formatDate(b.fecha)} · ${b.hora}</div>
+      </div>
+      <p style="text-align:center;font-size:13.5px;color:var(--texto-suave)">
+        Si tienes una emergencia, contáctanos directamente.
+      </p>
+      <a class="wa-btn" href="https://wa.me/${WHATSAPP_NUMBER}" target="_blank">Contactar por WhatsApp</a>
+    `;
+  }
+
+  else if(state.phase === 'pick'){
+    const selKey = state.selectedDay !== null ? dateKey(state.days[state.selectedDay].date) : null;
+    const takenForDay = selKey ? (state.takenMap[selKey] || []) : [];
+
+    card.innerHTML = `
+      <h2>Elige tu nueva fecha</h2>
+      <p class="hint">Tu anticipo de $${b.monto} MXN se transfiere automáticamente.</p>
+      <div class="notice">
+        📅 Cita actual: <b>${formatDate(b.fecha)}</b> · <b>${b.hora}</b> · ${b.servicio}
+      </div>
+      <label class="field">Nueva fecha</label>
+      <div class="cal-grid">
+        ${state.days.map((d,i)=>{
+          const isCurrentDay = dateKey(d.date) === b.fecha;
+          const cls = d.disabled ? 'disabled' : isCurrentDay ? 'same' : state.selectedDay===i ? 'selected' : '';
+          const click = (!d.disabled && !isCurrentDay) ? `onclick="selectDay(${i})"` : '';
+          return `<div class="cal-day ${cls}" ${click}>${d.label}${isCurrentDay?' (actual)':''}</div>`;
+        }).join('')}
+      </div>
+      ${state.selectedDay !== null ? `
+        <label class="field">Nuevo horario</label>
+        <div class="times">
+          ${TIME_SLOTS.map(t => {
+            const taken = takenForDay.includes(t);
+            const isSameTime = b.hora === t && selKey === b.fecha;
+            const cls = isSameTime ? 'same' : taken ? 'taken' : state.selectedTime===t ? 'selected' : '';
+            const click = (!taken && !isSameTime) ? `onclick="selectTime('${t}')"` : '';
+            return `<div class="time-slot ${cls}" ${click}>${t}</div>`;
+          }).join('')}
+        </div>
+      ` : ''}
+      <button class="btn-primary" ${!(state.selectedDay!==null&&state.selectedTime)?'disabled':''} onclick="goConfirm()">
+        Ver resumen del cambio
+      </button>
+      <hr style="border:none;border-top:1px solid var(--rosa-medio);margin:20px 0">
+      <p style="text-align:center;font-size:13px;color:var(--texto-suave);margin:0 0 6px">¿Prefieres cancelar tu cita?</p>
+      <button class="btn-cancel" onclick="state.phase='cancel-confirm';render()">
+        ❌ Cancelar mi cita
+      </button>
+    `;
+  }
+
+  else if(state.phase === 'confirm'){
+    const newDay = state.days[state.selectedDay];
+    card.innerHTML = `
+      <h2>Confirma el cambio</h2>
+      <p class="hint">Tu horario se actualizará automáticamente.</p>
+      <div class="summary-line"><span>Servicio</span><b>${b.servicio}</b></div>
+      <div class="summary-line">
+        <span>Antes</span>
+        <b style="color:var(--texto-suave);text-decoration:line-through">${formatDate(b.fecha)} · ${b.hora}</b>
+      </div>
+      <div class="summary-line">
+        <span>Nueva cita</span>
+        <b style="color:var(--rosa-fuerte)">${formatDate(dateKey(newDay.date))} · ${state.selectedTime}</b>
+      </div>
+      <div class="summary-line"><span>Anticipo</span><b>$${b.monto} MXN ✓ ya pagado</b></div>
+      <div style="display:flex;gap:10px;margin-top:20px">
+        <button style="flex:0 0 90px;border:1.5px solid var(--rosa-medio);border-radius:30px;padding:13px;background:var(--blanco);color:var(--texto-suave);cursor:pointer;font-size:14px" onclick="state.phase='pick';render()">Atrás</button>
+        <button class="btn-primary" style="margin-top:0" id="confirmBtn" onclick="confirmReschedule()">Confirmar cambio</button>
+      </div>
+    `;
+  }
+
+  else if(state.phase === 'done'){
+    const newDay = state.days[state.selectedDay];
+    const msg = `🌸 ¡Hola ODIOSA Studio! Reagendé mi cita:
+💅 Servicio: ${b.servicio}
+📅 Nueva fecha: ${formatDate(dateKey(newDay.date))} · ${state.selectedTime}
+👤 Nombre: ${b.nombre}`;
+    const waLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+
+    card.innerHTML = `
+      <div class="success-icon">🌸</div>
+      <h2 style="text-align:center">¡Cita reagendada!</h2>
+      <p class="hint" style="text-align:center">Tu horario se actualizó automáticamente.</p>
+      <div class="summary-line"><span>Servicio</span><b>${b.servicio}</b></div>
+      <div class="summary-line"><span>Nueva fecha</span><b>${formatDate(dateKey(newDay.date))}</b></div>
+      <div class="summary-line"><span>Nueva hora</span><b>${state.selectedTime}</b></div>
+      <div class="summary-line"><span>Anticipo</span><b>${b.monto} ✓ transferido</b></div>
+      <a class="wa-btn" href="${waLink}" target="_blank">Avisar por WhatsApp</a>
+      <p style="text-align:center;font-size:12.5px;color:var(--texto-suave);margin-top:12px">
+        Te recomendamos avisarle al estudio por WhatsApp para que esté al tanto.
+      </p>
+    `;
+  }
+
+  else if(state.phase === 'cancel-confirm'){
+    card.innerHTML = `
+      <h2>¿Cancelar tu cita?</h2>
+      <p class="hint">Por favor lee esto antes de confirmar:</p>
+      <div class="notice" style="background:#fdecea;border-left-color:#e07070;color:#7a2020">
+        ⚠️ Tu anticipo de <b>${b.monto}</b> <b>no es reembolsable</b> en caso de cancelación. Al confirmar, perderás ese monto.
+      </div>
+      <div class="current-box">
+        <div class="label">Cita que vas a cancelar</div>
+        <div class="val">${b.servicio}</div>
+        <div class="val" style="font-size:13px;font-weight:400;margin-top:4px">${formatDate(b.fecha)} · ${b.hora}</div>
+      </div>
+      <button class="btn-cancel" id="cancelConfirmBtn" onclick="confirmCancel()">
+        Sí, cancelar mi cita definitivamente
+      </button>
+      <button class="btn-primary" style="margin-top:10px;background:var(--blanco);color:var(--texto-suave);border:1.5px solid var(--rosa-medio)" onclick="state.phase='pick';render()">
+        No, mantener mi cita
+      </button>
+    `;
+  }
+
+  else if(state.phase === 'cancelled'){
+    card.innerHTML = `
+      <div class="success-icon">🙏</div>
+      <h2 style="text-align:center">Cita cancelada</h2>
+      <p class="hint" style="text-align:center">Tu cita fue cancelada y el horario quedó libre.</p>
+      <div class="summary-line"><span>Servicio</span><b>${b.servicio}</b></div>
+      <div class="summary-line"><span>Fecha cancelada</span><b>${formatDate(b.fecha)} · ${b.hora}</b></div>
+      <div class="summary-line"><span>Anticipo</span><b style="color:#c0577a">${b.monto} (no reembolsable)</b></div>
+      <p style="text-align:center;font-size:13px;color:var(--texto-suave);margin-top:16px">
+        Si quieres agendar una nueva cita en el futuro, puedes hacerlo desde el sitio principal.
+      </p>
+      <a class="wa-btn" href="https://wa.me/${WHATSAPP_NUMBER}" target="_blank" style="background:var(--rosa-fuerte)">
+        Contactar a ODIOSA Studio 🌸
+      </a>
+    `;
+  }
+}
+
+function formatDate(dateStr){
+  const [y,m,d] = dateStr.split('-').map(Number);
+  return new Date(y,m-1,d).toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
+}
+
+function selectDay(i){ state.selectedDay = i; state.selectedTime = null; render(); }
+function selectTime(t){ state.selectedTime = t; render(); }
+function goConfirm(){ state.phase = 'confirm'; render(); }
+
+async function confirmCancel(){
+  const btn = document.getElementById('cancelConfirmBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Cancelando…'; }
+
+  try{
+    const resp = await fetch('/api/reschedule', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        action: 'cancel',
+        paymentId: state.booking.paymentId,
+        rowIndex: state.booking.rowIndex,
+        fechaActual: state.booking.fecha,
+        horaActual: state.booking.hora,
+      }),
+    });
+    const data = await resp.json();
+    if(data.ok){
+      state.phase = 'cancelled';
+    } else {
+      state.phase = 'error';
+      state.errorMsg = data.error || 'No se pudo cancelar. Intenta de nuevo.';
+    }
+  } catch(err){
+    state.phase = 'error';
+    state.errorMsg = 'Error de conexión. Intenta de nuevo.';
+  }
+  render();
+}
+
+async function confirmReschedule(){
+  const btn = document.getElementById('confirmBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Guardando…'; }
+
+  const newDay = state.days[state.selectedDay];
+
+  try{
+    const resp = await fetch('/api/reschedule', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        action: 'reschedule',
+        paymentId: state.booking.paymentId,
+        rowIndex: state.booking.rowIndex,
+        nuevaFecha: dateKey(newDay.date),
+        nuevaHora: state.selectedTime,
+        fechaActual: state.booking.fecha,
+        horaActual: state.booking.hora,
+      }),
+    });
+
+    const data = await resp.json();
+
+    if(data.ok){
+      state.phase = 'done';
+    } else {
+      state.phase = 'error';
+      state.errorMsg = data.error || 'No se pudo reagendar. Intenta de nuevo.';
+    }
+  } catch(err){
+    state.phase = 'error';
+    state.errorMsg = 'Error de conexión. Intenta de nuevo.';
+  }
+  render();
+}
+
+init();
+</script>
+</body>
+</html>
