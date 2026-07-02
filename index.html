@@ -278,16 +278,17 @@ CONFIG.days = generateDays();
 
 const state = {
   step: 1,
-  category: null,       // 'unas' | 'cabello'
-  service: null,        // string
-  photo: null,           // base64
-  day: null,             // index
+  category: null,
+  service: null,
+  services: [],          // array of selected services (supports multiple)
+  photo: null,
+  day: null,
   time: null,
   name: "",
   phone: "",
-  paymentStatus: "pending", // 'pending' | 'checking' | 'approved' | 'rejected'
+  paymentStatus: "pending",
   paymentId: null,
-  takenMap: {},          // { "2026-06-26": ["1:00 pm", ...] } — viene del Google Sheet
+  takenMap: {},
   bookingSaved: false
 };
 
@@ -355,19 +356,33 @@ function render(){
 
   if(state.step === 2){
     const s = SERVICES[state.category];
+    const allServices = Object.values(SERVICES).flatMap(sv => sv.options);
+    const selectedList = state.services.length > 0 ? state.services : (state.service ? [state.service] : []);
+
     card.innerHTML = `
       <h2>${s.label}</h2>
-      <p class="hint">Selecciona el servicio exacto</p>
+      <p class="hint">Selecciona uno o más servicios para tu cita</p>
+      ${selectedList.length > 0 ? `
+        <div style="background:var(--rosa-suave);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13.5px">
+          🛒 <b>Seleccionados:</b> ${selectedList.join(', ')}
+        </div>
+      ` : ''}
       <div class="options">
-        ${s.options.map(opt => `
-          <div class="opt ${state.service===opt?'selected':''}" onclick="selectService('${opt.replace(/'/g,"\\'")}')">
-            <span>${opt}</span><span class="check"></span>
-          </div>
-        `).join('')}
+        ${s.options.map(opt => {
+          const isSelected = selectedList.includes(opt);
+          return `
+            <div class="opt ${isSelected?'selected':''}" onclick="toggleService('${opt.replace(/'/g,"\\'")}')">
+              <span>${opt}</span><span class="check"></span>
+            </div>`;
+        }).join('')}
       </div>
+      <p style="font-size:12.5px;color:var(--texto-suave);text-align:center;margin:10px 0 0">
+        ¿Quieres agregar un servicio de otra categoría?
+        <a href="#" onclick="addAnotherCategory()" style="color:var(--rosa-fuerte)">Agregar más</a>
+      </p>
       <div class="btns">
         <button class="btn-secondary" onclick="setStep(1)">Atrás</button>
-        <button class="btn-primary" ${!state.service?'disabled':''} onclick="setStep(3)">Continuar</button>
+        <button class="btn-primary" ${selectedList.length===0?'disabled':''} onclick="confirmServices()">Continuar</button>
       </div>
     `;
   }
@@ -518,8 +533,34 @@ function render(){
   }
 }
 
-function selectCategory(key){ state.category = key; state.service = null; setStep(2); }
-function selectService(opt){ state.service = opt; render(); }
+function selectCategory(key){
+  state.category = key;
+  if(state.services.length === 0) state.services = [];
+  setStep(2);
+}
+
+function toggleService(opt){
+  const idx = state.services.indexOf(opt);
+  if(idx === -1){
+    state.services.push(opt);
+  } else {
+    state.services.splice(idx, 1);
+  }
+  state.service = state.services[0] || null;
+  render();
+}
+
+function addAnotherCategory(){
+  // Switch to the other category and keep selections
+  const otherKey = state.category === 'unas' ? 'cabello' : 'unas';
+  state.category = otherKey;
+  render();
+}
+
+function confirmServices(){
+  state.service = state.services.join(', ');
+  setStep(3);
+}
 function handlePhoto(e){
   const file = e.target.files[0];
   if(file){ fileToBase64(file, (b64)=>{ state.photo = b64; render(); }); }
@@ -642,9 +683,10 @@ function toggleStep6Btn(){
   if(btn) btn.disabled = !(state.name && state.phone);
 }
 function restart(){
-  state.step=1; state.category=null; state.service=null; state.photo=null;
-  state.day=null; state.time=null; state.name=""; state.phone="";
+  state.step=1; state.category=null; state.service=null; state.services=[];
+  state.photo=null; state.day=null; state.time=null; state.name=""; state.phone="";
   state.paymentStatus="pending"; state.paymentId=null;
+  state.bookingSaved=false; state.takenMap={};
   localStorage.removeItem('booking_state');
   render();
 }
