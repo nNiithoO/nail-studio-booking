@@ -68,18 +68,19 @@ async function sendEmail(subject, html) {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: 'ODIOSA Studio <onboarding@resend.dev>', // cambia al dominio verificado cuando tengas uno
+        from: 'onboarding@resend.dev', // ← funciona sin dominio propio en plan gratuito
         to: [OWNER_EMAIL],
         subject,
         html,
       }),
     });
+    const result = await resp.json();
     if (!resp.ok) {
-      const err = await resp.json();
-      console.error('Resend error:', err);
+      console.error('Resend error status:', resp.status, JSON.stringify(result));
+    } else {
+      console.log('Email enviado correctamente:', result.id);
     }
   } catch (err) {
-    console.error('Error enviando alerta:', err);
-    // No lanzamos el error — si el email falla, la cita igual se guarda
+    console.error('Error enviando alerta:', err.message);
   }
 }
