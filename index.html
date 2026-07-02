@@ -310,7 +310,7 @@ async function fetchAvailability(){
   }
 }
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 6;
 
 function setStep(n){
   state.step = n;
@@ -322,9 +322,10 @@ function setStep(n){
 function renderStepper(){
   const el = document.getElementById('stepper');
   el.innerHTML = "";
+  const displayStep = state.step === 45 ? 4 : state.step > 45 ? state.step - 39 : state.step;
   for(let i=1;i<=TOTAL_STEPS;i++){
     const dot = document.createElement('div');
-    dot.className = 'dot' + (i===state.step ? ' active' : '');
+    dot.className = 'dot' + (i===displayStep ? ' active' : '');
     el.appendChild(dot);
   }
 }
@@ -434,7 +435,22 @@ function render(){
       ` : ''}
       <div class="btns">
         <button class="btn-secondary" onclick="setStep(3)">Atrás</button>
-        <button class="btn-primary" ${!(state.day!==null && state.time) ? 'disabled':''} onclick="setStep(5)">Continuar</button>
+        <button class="btn-primary" ${!(state.day!==null && state.time) ? 'disabled':''} onclick="setStep(45)">Continuar</button>
+      </div>
+    `;
+  }
+
+  if(state.step === 45){
+    card.innerHTML = `
+      <h2>Tus datos</h2>
+      <p class="hint">Para confirmar tu cita necesitamos estos datos</p>
+      <label class="field">Nombre completo</label>
+      <input type="text" id="nameInput" value="${state.name}" placeholder="Ej. Ana López" oninput="state.name=this.value; toggleStep45Btn()">
+      <label class="field">Teléfono / WhatsApp</label>
+      <input type="tel" id="phoneInput" value="${state.phone}" placeholder="Ej. 55 1234 5678" oninput="state.phone=this.value; toggleStep45Btn()">
+      <div class="btns">
+        <button class="btn-secondary" onclick="setStep(4)">Atrás</button>
+        <button class="btn-primary" id="step45btn" ${!(state.name&&state.phone)?'disabled':''} onclick="setStep(5)">Continuar</button>
       </div>
     `;
   }
@@ -475,21 +491,6 @@ function render(){
   }
 
   if(state.step === 6){
-    card.innerHTML = `
-      <h2>Tus datos</h2>
-      <p class="hint">Para confirmar tu cita</p>
-      <label class="field">Nombre completo</label>
-      <input type="text" id="nameInput" value="${state.name}" placeholder="Ej. Ana López" oninput="state.name=this.value; toggleStep6Btn()">
-      <label class="field">Teléfono / WhatsApp</label>
-      <input type="tel" id="phoneInput" value="${state.phone}" placeholder="Ej. 55 1234 5678" oninput="state.phone=this.value; toggleStep6Btn()">
-      <div class="btns">
-        <button class="btn-secondary" onclick="setStep(5)">Atrás</button>
-        <button class="btn-primary" id="step6btn" ${!(state.name&&state.phone)?'disabled':''} onclick="setStep(7)">Continuar</button>
-      </div>
-    `;
-  }
-
-  if(state.step === 7){
     const dayObj = CONFIG.days[state.day];
     const fecha = dayObj.date.toLocaleDateString('es-MX',{weekday:'long', day:'numeric', month:'long'});
     const siteUrl = window.location.origin;
@@ -523,10 +524,10 @@ function render(){
         ✆ Confirmar por WhatsApp
       </a>
       <p class="note" style="text-align:center;margin-top:12px">
-        Adjunta también tu comprobante de pago y la foto de referencia en el chat de WhatsApp para finalizar.
+        Adjunta también tu foto de referencia en el chat de WhatsApp para finalizar.
       </p>
       <div class="btns">
-        <button class="btn-secondary" onclick="setStep(6)">Atrás</button>
+        <button class="btn-secondary" onclick="setStep(5)">Atrás</button>
         <button class="btn-secondary" style="flex:1" onclick="restart()">Empezar de nuevo</button>
       </div>
     `;
@@ -678,8 +679,8 @@ async function saveBookingToSheet(){
   }
 }
 
-function toggleStep6Btn(){
-  const btn = document.getElementById('step6btn');
+function toggleStep45Btn(){
+  const btn = document.getElementById('step45btn');
   if(btn) btn.disabled = !(state.name && state.phone);
 }
 function restart(){
