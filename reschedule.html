@@ -235,7 +235,7 @@ function render(){
 
     card.innerHTML = `
       <h2>Elige tu nueva fecha</h2>
-      <p class="hint">Tu anticipo de $${b.monto} MXN se transfiere automáticamente.</p>
+      <p class="hint">Tu anticipo de <b>$${b.monto} MXN</b> se transfiere automáticamente.</p>
       <div class="notice">
         📅 Cita actual: <b>${formatDate(b.fecha)}</b> · <b>${b.hora}</b> · ${b.servicio}
       </div>
