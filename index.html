@@ -590,7 +590,23 @@ async function checkPaymentFromUrl(){
 }
 
 async function saveBookingToSheet(){
-  if(state.bookingSaved) return; // evita escribir dos veces si se recarga la página
+  if(state.bookingSaved) return;
+
+  // Safety check: if state.day is null after returning from payment,
+  // try to recover it from localStorage
+  if(state.day === null || state.day === undefined){
+    try{
+      const saved = localStorage.getItem('booking_state');
+      if(saved){ Object.assign(state, JSON.parse(saved)); }
+    } catch(e){ console.warn('Could not recover state', e); }
+  }
+
+  // If still null, we can't write the booking — log and bail
+  if(state.day === null || state.day === undefined){
+    console.error('state.day is null — cannot save booking');
+    return;
+  }
+
   try{
     const resp = await fetch('/api/book-appointment', {
       method: 'POST',
@@ -608,9 +624,12 @@ async function saveBookingToSheet(){
     const data = await resp.json();
     if(data.ok){
       state.bookingSaved = true;
-      localStorage.setItem('booking_state', JSON.stringify(state));
+      // Save only lightweight fields (no photo) to avoid QuotaExceededError
+      try{
+        const { photo, ...lightState } = state;
+        localStorage.setItem('booking_state', JSON.stringify(lightState));
+      } catch(e){ console.warn('localStorage save failed (non-critical)', e); }
     } else {
-      // Caso raro: alguien pagó y reservó ese mismo horario unos segundos antes
       state.paymentStatus = 'slot_taken';
     }
   } catch(err){
