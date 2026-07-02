@@ -66,9 +66,15 @@ export default async function handler(req, res) {
     }
 
     // 3) Verificar que el horario sigue libre (evitar doble reserva)
-    const dataRows = hasHeaders ? rows.slice(1) : rows;
-    const yaOcupado = dataRows.some(
-      (row) => row[0] === fecha && row[1] === hora && (!row[4] || row[4].toLowerCase() !== 'cancelada')
+    // Leemos SIEMPRE fresco del Sheet — nunca confiamos en el caché del cliente
+    const freshCheck = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${SHEET_TAB}!A2:E`,
+    });
+    const freshRows = freshCheck.data.values || [];
+    const yaOcupado = freshRows.some(
+      (row) => row[0] === fecha && row[1] === hora &&
+               (!row[4] || (row[4].toLowerCase() !== 'cancelada'))
     );
 
     if (yaOcupado) {
