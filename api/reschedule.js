@@ -6,7 +6,7 @@
 import { getSheetsClient, SHEET_ID, SHEET_TAB } from './_sheets.js';
 import { sendRescheduleAlert, sendCancellationAlert } from './send-alert.js';
 
-const HOURS_IN_ADVANCE = 24;
+const HOURS_IN_ADVANCE = 0; // ← cambiar a 24 antes de entregar al negocio
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
